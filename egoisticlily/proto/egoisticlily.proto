@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package egoisticlily;
+
+service EgoisticLilyService {
+    // 多分変換
+    rpc Convert(ConvertReq) returns (ConvertResp) {}
+
+    // 多分部分変換
+    rpc PartialConvert(PartialConvertReq) returns (PartialConvertResp) {}
+}
+
+message ConvertReq {
+    string in_str = 1;
+}
+
+message ConvertResp {
+    int32 status = 1;
+    string out_str = 2;
+}
+
+message PartialConvertReq {
+    string in_str = 1;
+}
+
+message PartialConvertResp {
+    int32 status = 1;
+    repeated string out_str = 2;
+}
