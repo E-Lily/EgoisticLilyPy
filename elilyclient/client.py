@@ -20,18 +20,34 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 """
+import argparse
 import grpc
 import egoisticlily.proto.egoisticlily_pb2_grpc
 import egoisticlily.proto.egoisticlily_pb2
 
 
 def to_server(stub, kana):
+    """ EgoisticLilyリクエスト送信
+
+    :param stub:
+    :param kana:
+    :return:
+    """
     response = stub.Convert(egoisticlily.proto.egoisticlily_pb2.ConvertReq(in_str=kana))
     print("漢字: " + response.out_str)
 
 
-def run():
-    with grpc.insecure_channel('[::]:50055') as channel:
+def main():
+    """ EgoisticLily クライアントモジュール
+
+    :return:
+    """
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('-p', '--port', help='server port number', default='50055')
+    args = arg_parser.parse_args()
+
+    port_str = '[::]:' + args.port
+    with grpc.insecure_channel(port_str) as channel:
         stub = egoisticlily.proto.egoisticlily_pb2_grpc.EgoisticLilyServiceStub(channel)
         print('--EgoisticLily Client--')
         while True:
@@ -40,4 +56,4 @@ def run():
 
 
 if __name__ == '__main__':
-    run()
+    main()

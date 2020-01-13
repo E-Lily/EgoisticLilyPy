@@ -33,15 +33,29 @@ _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 class EgoisticLilyGateway(egoisticlily.proto.egoisticlily_pb2_grpc.EgoisticLilyServiceServicer):
     def __init__(self, model):
+        """ EgoisticLily gRPCサーバークラス
+
+        :param model: モデルパス
+        """
         self.converter = Converter(model)
 
     def Convert(self, request, context):
+        """ 変換
+
+        :param request:
+        :param context:
+        :return:
+        """
         ret_str = self.converter(request.in_str)
         response = egoisticlily.proto.egoisticlily_pb2.ConvertResp(status=200, out_str=ret_str)
         return response
 
 
 def main():
+    """ EgoisticLily gRPCサーバーモジュール
+
+    :return:
+    """
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-m', '--model', help='model path', required=True)
     arg_parser.add_argument('-p', '--port', help='server port number', default='50055')
