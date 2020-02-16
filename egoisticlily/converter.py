@@ -20,41 +20,27 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 """
-import os
-import csv
 import argparse
-import marisa_trie
 import numpy as np
 import torch
 import torch.nn as nn
-from egoisticlily.words import Words
-from egoisticlily.modelmaker.wordvector import CostAeModel
+from egoisticlily.words_dictionary import WordsDictionaryTrain
+from egoisticlily.model import ELilyModel
 
 
 class Converter:
-    def __init__(self, model_dir):
+    def __init__(self, model_dir, pos_id_num=43):
         """ 変換モジュール
 
         :param model_dir:
         """
         self.words = []
-        trie_keys = []
-        trie_values = []
         self.loss = nn.MSELoss()
 
-        model_path = os.path.abspath(model_dir)
-        with open(model_path + "/words.csv", "r") as f:
-            reader = csv.reader(f, delimiter=",")
-            for i, row in enumerate(reader):
-                self.words.append([row[0], int(row[2]), int(row[3]), int(row[4])])
-                trie_keys.append(row[1])
-                trie_values.append([i])
-
-        self.trie = marisa_trie.RecordTrie("<I", zip(trie_keys, trie_values))
-        self.word_info = Words()
-
-        self.model = CostAeModel(len(self.word_info.word_type_list[0]), len(self.word_info.word_type_list[1]))
-        self.model.load_state_dict(torch.load(model_dir + "/dnn.mdl"))
+        self.word_info = WordsDictionaryTrain(model_dir + "/words_dat.pkl")
+        self.model = ELilyModel()
+        self.model.load_state_dict(torch.load(model_dir + "/elily.mdl"))
+        self.pos_id_one_hot = np.eye(pos_id_num, dtype="float32")
 
     def __call__(self, in_text):
         """ 変換
@@ -62,35 +48,35 @@ class Converter:
         :param in_text:
         :return:
         """
-        init_id = self.id_list("@S@")[0]
+        # init_id = self.id_list("@S@")[0]
 
         # words_set build
         words_set = [[] for i in range(len(in_text))]
         for i in range(len(in_text)):
-            for prefix in self.trie.prefixes(in_text[i:]):
+            for prefix in self.word_info.reads_trie.prefixes(in_text[i:]):
                 words_set[i+len(prefix)-1].append(prefix)
 
         # node build
         min_node = []
         for i in range(len(words_set)):
-            min_node.append({"cost": 0., "id": init_id, "con_idx": 0})
+            min_node.append({"cost": 0., "id": -1, "con_idx": 0})
 
             for node_read in words_set[i]:
                 node_read_len = len(node_read)
                 con_index = i - node_read_len
                 for node_one in self.id_list(node_read):
                     if con_index < 0:
-                        cost_tmp = self.score(self.id_list("@S@")[0], node_one)
+                        cost_tmp = 1.
                     else:
                         score_tmp = self.score(min_node[con_index]["id"], node_one)
                         cost_tmp = min_node[con_index]["cost"] + score_tmp
-                    print("[%d]    %s: %f" % (i, self.words[node_one], cost_tmp))
+                    print("[%d]    %s: %f" % (i, self.word_info.words_dic_info[node_one]["surface"], cost_tmp))
 
                     if cost_tmp < min_node[i]["cost"] or min_node[i]["cost"] == 0.:
                         min_node[i]["cost"] = cost_tmp
                         min_node[i]["id"] = node_one
                         min_node[i]["con_idx"] = con_index
-                        print("[%d] -> %s: %f" % (i, self.words[node_one], cost_tmp))
+                        print("[%d] -> %s: %f" % (i, self.word_info.words_dic_info[node_one]["surface"], cost_tmp))
 
         node_idx_ary = []
         node_idx = len(words_set) - 1
@@ -103,7 +89,7 @@ class Converter:
 
         ret_str = ""
         for i in node_idx_ary:
-            ret_str += self.words[min_node[i]["id"]][0]
+            ret_str += self.word_info.words_dic_info[min_node[i]["id"]]["surface"]
         return ret_str
 
     def score(self, word1_id, word2_id):
@@ -113,13 +99,16 @@ class Converter:
         :param word2_id:
         :return:
         """
-        # 係り受け解析部 ※未実装
-        non_id_vec = self.vector(self.id_list("@N@")[0])
-        vec = np.vstack((non_id_vec, non_id_vec))
+        pre_word = self.word_info.get_from_id(word1_id)
+        post_word = self.word_info.get_from_id(word2_id)
 
-        vec = np.vstack((vec, self.vector(word1_id)))
-        vec = np.vstack((vec, self.vector(word2_id)))
-        vec = torch.from_numpy(vec.reshape(1, 320))
+        pre_vec_id = np.array(pre_word["vec_id"], dtype="float32")
+        post_vec_id = np.array(post_word["vec_id"], dtype="float32")
+
+        vec = np.hstack((pre_vec_id, post_vec_id))
+        vec = np.hstack((vec, self.pos_id_one_hot[int(pre_word["pos_id"])]))
+        vec = np.hstack((vec, self.pos_id_one_hot[int(post_word["pos_id"])]))
+        vec = torch.from_numpy(vec)
         y = self.model(vec)
         return self.loss(y, vec)
 
@@ -130,18 +119,9 @@ class Converter:
         :return:
         """
         ret = []
-        for word_id in self.trie.get(word):
+        for word_id in self.word_info.reads_trie.get(word):
             ret.append(word_id[0])
         return ret
-
-    def vector(self, word_id):
-        """ DNN用単語ベクトル取得
-
-        :param word_id:
-        :return:
-        """
-        id_list = self.words[word_id]
-        return self.word_info(id_list[1], id_list[2], id_list[3])
 
 
 def main():

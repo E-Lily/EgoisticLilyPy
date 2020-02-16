@@ -2,9 +2,9 @@ from setuptools import setup
 
 setup(
     name='EgoisticLily',
-    version='0.2.0',
-    packages=['egoisticlily', 'egoisticlily.proto', 'egoisticlily.modelmaker'],
-    install_requires=['torch', 'numpy', 'marisa-trie', 'grpcio-tools'],
+    version='0.3.0',
+    packages=['egoisticlily', 'egoisticlily.proto'],
+    install_requires=['torch', 'numpy', 'marisa-trie', 'grpcio-tools', 'tqdm'],
     url='https://github.com/E-Lily/EgoisticLilyPy',
     license='MIT',
     author='Hashimoto Masahiko',

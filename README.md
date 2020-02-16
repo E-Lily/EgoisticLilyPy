@@ -1,4 +1,4 @@
-# EgoisticLilyPy
+# ELilyPy
 
 AutoEncoderモデルを採用したかな漢字変換エンジンです。  
 iBus と連携させる ibus-egoisticlily はこちらにあります。  
